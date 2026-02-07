@@ -43,6 +43,7 @@ import ErrorPanel from '../../../components/ErrorPanel';
 import taskGroupQuery from './taskGroup.graphql';
 import taskGroupSubscription from './taskGroupSubscription.graphql';
 import submitTaskAction from '../submitTaskAction';
+import { AuthContext } from '../../../utils/Auth';
 import notify from '../../../utils/notify';
 import logoFailed from '../../../images/logoFailed.png';
 import logoCompleted from '../../../images/logoCompleted.png';
@@ -162,6 +163,8 @@ const updateTaskGroupIdHistory = id => {
   },
 }))
 export default class TaskGroup extends Component {
+  static contextType = AuthContext;
+
   static calculateStatusCountStatic(taskGroup) {
     const statusCount = {
       completed: 0,
@@ -632,6 +635,7 @@ export default class TaskGroup extends Component {
       form,
       action,
       apolloClient,
+      user: this.context.user,
     });
 
     return taskId;
