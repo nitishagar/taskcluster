@@ -151,8 +151,10 @@ func (task *TaskRun) classifyCreateArtifactError(artifact artifacts.TaskArtifact
 			if status == deadlineExceeded || status == cancelled {
 				return nil
 			}
-			// assume a problem with the request == worker bug
-			panic(fmt.Errorf("WORKER EXCEPTION due to response code %v from Queue when uploading artifact %#v with CreateArtifact payload %v - HTTP response body: %v", rootCause.HttpResponseCode, artifact, string(payload), t.CallSummary.HTTPResponseBody))
+			// a 4xx here means the queue rejected a request built from the
+			// task payload (e.g. an invalid artifact name), so treat it as a
+			// malformed payload rather than crashing the worker
+			return MalformedPayloadError(fmt.Errorf("response code %v from Queue when uploading artifact %#v with CreateArtifact payload %v - HTTP response body: %v", rootCause.HttpResponseCode, artifact, string(payload), t.CallSummary.HTTPResponseBody))
 		case *url.Error:
 			switch subCause := rootCause.Err.(type) {
 			case *net.OpError:

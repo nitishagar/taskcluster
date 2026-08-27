@@ -2,6 +2,8 @@ package main
 
 import (
 	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -10,9 +12,11 @@ import (
 	"time"
 
 	"github.com/mcuadros/go-defaults"
+	"github.com/taskcluster/httpbackoff/v3"
 	"github.com/taskcluster/slugid-go/slugid"
 	tcclient "github.com/taskcluster/taskcluster/v106/clients/client-go"
 	"github.com/taskcluster/taskcluster/v106/clients/client-go/tcqueue"
+	"github.com/taskcluster/taskcluster/v106/internal/mocktc/tc"
 	"github.com/taskcluster/taskcluster/v106/workers/generic-worker/artifacts"
 )
 
@@ -1310,4 +1314,91 @@ func TestDirectoryArtifactUploadFromAbsolutePath(t *testing.T) {
 		},
 	}
 	expectedArtifacts.Validate(t, taskID, 0)
+}
+
+// TestClassifyCreateArtifactError checks how classifyCreateArtifactError
+// maps an HTTP response code returned by queue.CreateArtifact to a task
+// resolution. A 4xx such as 400 InvalidRequestArguments for an artifact
+// name containing a newline used to panic and crash the whole worker
+// process; it should instead resolve the task as malformed-payload.
+// See https://github.com/taskcluster/taskcluster/issues/9007.
+func TestClassifyCreateArtifactError(t *testing.T) {
+	setup(t)
+
+	// The 400 case queries the queue for the latest task status before
+	// classifying. Point the worker at a queue whose every response is a
+	// 404: httpbackoff does not retry 4xx, so the status query fails fast
+	// and the last known status becomes `unknown`, letting classification
+	// reach the final branch rather than the cancelled/deadline branch.
+	// (mocktc cannot serve this: its Status handler panics for unknown
+	// tasks, which leaves the client with an EOF that httpbackoff retries
+	// until the test times out. The mock service factory also ignores its
+	// rootURL argument, so swap in a real client factory too.)
+	queue404 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	t.Cleanup(queue404.Close)
+	origFactory := serviceFactory
+	origRootURL := config.RootURL
+	serviceFactory = &tc.ClientFactory{}
+	config.RootURL = queue404.URL
+	t.Cleanup(func() {
+		serviceFactory = origFactory
+		config.RootURL = origRootURL
+	})
+
+	task := &TaskRun{
+		TaskID: "unknown-task-id",
+	}
+	task.StatusManager = NewTaskStatusManager(task)
+
+	// an artifact name that the real queue would reject with a 400
+	artifact := &artifacts.S3Artifact{
+		BaseArtifact: &artifacts.BaseArtifact{
+			Name: "public/logs/a\nb.log",
+		},
+	}
+	payload := []byte("{}")
+
+	makeErr := func(code int) error {
+		return &tcclient.APICallException{
+			RootCause: httpbackoff.BadHttpResponseCode{
+				HttpResponseCode: code,
+			},
+			CallSummary: &tcclient.CallSummary{
+				HTTPResponseBody: "synthetic error body",
+			},
+		}
+	}
+
+	testCases := []struct {
+		name            string
+		code            int
+		expectedReason  TaskUpdateReason
+		messageContains string
+	}{
+		// the 409 branch keeps its existing conflict message, which does
+		// not spell out the status code
+		{"400_malformed_payload", 400, malformedPayload, "400"},
+		{"500_resource_unavailable", 500, resourceUnavailable, "500"},
+		{"409_conflict_malformed_payload", 409, malformedPayload, "conflict"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			e := task.classifyCreateArtifactError(artifact, payload, makeErr(tc.code))
+			if e == nil {
+				t.Fatalf("Expected a *CommandExecutionError for HTTP %v, got nil", tc.code)
+			}
+			if e.Reason != tc.expectedReason {
+				t.Errorf("Expected reason %v for HTTP %v, got %v", tc.expectedReason, tc.code, e.Reason)
+			}
+			if e.TaskStatus != errored {
+				t.Errorf("Expected task status %v for HTTP %v, got %v", errored, tc.code, e.TaskStatus)
+			}
+			if !strings.Contains(e.Cause.Error(), tc.messageContains) {
+				t.Errorf("Expected error message to contain %q for HTTP %v, got: %v", tc.messageContains, tc.code, e.Cause.Error())
+			}
+		})
+	}
 }
