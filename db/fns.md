@@ -874,9 +874,9 @@ end
   * `event_id text`
   * `pull_request_number integer`
   * `etag uuid`
-* *Last defined on version*: 85
+* *Last defined on version*: 129
 
-Get github builds.
+Get github builds, newest first.
 
 <details><summary>Function Body</summary>
 
@@ -902,7 +902,7 @@ begin
     (repository_in is null or github_builds.repository = repository_in) and
     (sha_in is null or github_builds.sha = sha_in) and
     (pull_request_number_in is null or github_builds.pull_request_number = pull_request_number_in)
-  order by github_builds.updated asc
+  order by github_builds.updated desc
   limit get_page_limit(page_size_in)
   offset get_page_offset(page_offset_in);
 end

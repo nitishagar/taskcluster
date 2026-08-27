@@ -1,0 +1,36 @@
+version: 129
+description: return github builds newest-first (descending updated) instead of oldest-first
+methods:
+  get_github_builds_pr:
+    description: |-
+      Get github builds, newest first.
+    mode: read
+    serviceName: github
+    args: page_size_in integer, page_offset_in integer, organization_in text, repository_in text, sha_in text, pull_request_number_in integer
+    returns: table (organization text, repository text, sha text, task_group_id text, state text, created timestamptz, updated timestamptz, installation_id integer, event_type text, event_id text, pull_request_number integer, etag uuid)
+    body: |-
+      begin
+        return query
+        select
+          github_builds.organization,
+          github_builds.repository,
+          github_builds.sha,
+          github_builds.task_group_id,
+          github_builds.state,
+          github_builds.created,
+          github_builds.updated,
+          github_builds.installation_id,
+          github_builds.event_type,
+          github_builds.event_id,
+          github_builds.pull_request_number,
+          public.gen_random_uuid()
+        from github_builds
+        where
+          (organization_in is null or github_builds.organization = organization_in) and
+          (repository_in is null or github_builds.repository = repository_in) and
+          (sha_in is null or github_builds.sha = sha_in) and
+          (pull_request_number_in is null or github_builds.pull_request_number = pull_request_number_in)
+        order by github_builds.updated desc
+        limit get_page_limit(page_size_in)
+        offset get_page_offset(page_offset_in);
+      end

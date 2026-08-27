@@ -163,7 +163,7 @@ suite(testing.suiteName(), () => {
       fetched.forEach((build, i) => {
         assert(build.etag);
         delete build.etag;
-        assert.deepEqual(build, builds[builds.length - i - 1]);
+        assert.deepEqual(build, builds[i]);
       });
 
       // list by PR
