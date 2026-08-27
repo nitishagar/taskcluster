@@ -89,17 +89,17 @@ helper.secrets.mockSuite(testing.suiteName(), [], (mock, skipping) => {
   // with; see services/worker-manager/README.md#Testing for how to work out which
   // one a refreshed fixture uses.  It will be one of the certs on
   // https://learn.microsoft.com/en-us/azure/security/fundamentals/azure-ca-details
-  const intermediateCertFingerprint = 'F8:A4:08:B8:FB:EE:A0:77:B7:57:38:65:86:41:BE:77:15:47:20:EB';
-  const intermediateCertSubject = '/C=US,/O=Microsoft Corporation,/CN=Microsoft TLS G2 RSA CA OCSP 02';
+  const intermediateCertFingerprint = 'DA:6D:04:00:64:1B:45:AE:CC:59:5D:24:E5:03:7A:A6:BC:09:C3:58';
+  const intermediateCertSubject = '/C=US,/O=Microsoft Corporation,/CN=Microsoft TLS G2 RSA CA OCSP 04';
   const intermediateCertIssuer = '/C=US,/O=Microsoft Corporation,/CN=Microsoft TLS RSA Root G2';
   const intermediateCertPath = path.resolve(
     __dirname,
-    '../src/providers/azure/azure-ca-certs/microsoft_tls_g2_rsa_ca_ocsp_02.pem'
+    '../src/providers/azure/azure-ca-certs/microsoft_tls_g2_rsa_ca_ocsp_04.pem'
   );
   // The signing cert lists two CA Issuer locations, tried in order.
-  const intermediateCertUrl = 'http://www.microsoft.com/pkiops/certs/Microsoft%20TLS%20G2%20RSA%20CA%20OCSP%2002.crt';
+  const intermediateCertUrl = 'http://www.microsoft.com/pkiops/certs/Microsoft%20TLS%20G2%20RSA%20CA%20OCSP%2004.crt';
   const intermediateCertUrlFallback =
-    'http://caissuers.microsoft.com/pkiops/certs/Microsoft%20TLS%20G2%20RSA%20CA%20OCSP%2002.crt';
+    'http://caissuers.microsoft.com/pkiops/certs/Microsoft%20TLS%20G2%20RSA%20CA%20OCSP%2004.crt';
   const expectedAuthorityAccessInfo = JSON.stringify([
     { method: 'CA Issuer', location: intermediateCertUrl },
     { method: 'CA Issuer', location: intermediateCertUrlFallback },

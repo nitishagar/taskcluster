@@ -40,6 +40,8 @@ curl -H Metadata:true --noproxy "*" "http://169.254.169.254/metadata/instance?ap
 # ]
 ```
 
+A fresh pair of documents is also available without running a VM: community-tc runs a weekly hook that publishes them as index artifacts (see `project.taskcluster.azure.attested-document` in the [community-tc-config](https://github.com/mozilla/community-tc-config) repository). Fetch `https://community-tc.services.mozilla.com/api/index/v1/task/project.taskcluster.azure.attested-document.latest/artifacts/public/attested.json` (use its `.signature` as the document) and the sibling `public/instance.json` (use its `.compute.vmId` as the vmId).
+
 Note: a refreshed signature may be signed by a different intermediate certificate than the previous one (Azure rotates leaf certs roughly every 180 days, and is migrating regions to the `Microsoft TLS G2 RSA CA OCSP NN` hierarchy). This matters for `test/provider_azure_test.js`, which pins the intermediate. After refreshing the fixture:
 
 1. Work out which intermediate signed it (see the collapsed section below).
